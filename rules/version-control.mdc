@@ -1,0 +1,9 @@
+---
+description: "Disables version control for agents."
+alwaysApply: true
+---
+
+# Version Control
+
+- THE AGENT MUST NEVER AUTOMATICALLY ADD OR COMMIT CHANGES! 
+- ALWAYS THROW BACK TO THE USER FOR THEIR MANUALLY REVIEW OF THE CHANGES AFTER IMPLEMENTATION!

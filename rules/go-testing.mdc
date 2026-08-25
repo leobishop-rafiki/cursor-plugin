@@ -1,0 +1,19 @@
+---
+description: "Golang testing standards."
+globs: "**/*_test.go"
+alwaysApply: false/a
+---
+
+# Mocks
+
+- For unit tests use pre-existing interface mocks for dependencies.
+- Search the codebase for an existing mock before implementing a new one.
+- When implementing a new mock always generate it using mockery, e.g. `//go:generate go tool with-modfile mockery --name API --outpkg testing --output ./testing --filename generated__apicore_mocks.go`
+- Always assert the number of times a mock should be called.
+
+# Testing.T
+
+- Don't use the `tt := tt` loop-variable-capture pattern in table-driven tests — unnecessary since Go 1.22.
+- Prefer `t.Context()` over `context.Background()` in tests, so any background work is cancelled on test cleanup.
+- Construct test fixtures via the package's own constructor/helper (e.g. `NewAPIError(...)`) rather than a raw struct literal.
+- Prefer using `t.TempDir()` when temporary files are used.
