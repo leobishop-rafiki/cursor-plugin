@@ -4,6 +4,10 @@ globs: "**/*_test.go"
 alwaysApply: false/a
 ---
 
+# Terminology
+
+In this rule, “signature” means a function or method’s parameters and result types, including interface method specifications.
+
 # Mocks
 
 - For unit tests use pre-existing interface mocks for dependencies.
@@ -17,3 +21,29 @@ alwaysApply: false/a
 - Prefer `t.Context()` over `context.Background()` in tests, so any background work is cancelled on test cleanup.
 - Construct test fixtures via the package's own constructor/helper (e.g. `NewAPIError(...)`) rather than a raw struct literal.
 - Prefer using `t.TempDir()` when temporary files are used.
+
+# Table-Driven Tests
+
+- We expect table-driven tests for functional tests that specify a signature's input, output, error, and dependency behaviour. Each table row should describe one distinct behaviour.
+- Design the case struct around the code under test, not a fixed template. It may contain:
+  - `input` fields for explicit input values, e.g. `paramA ParamA`, `record RecordType`, `key string`, etc...
+  - `want` fields for explicit result values, e.g. `wantResult Result`, `wantOk bool`, etc...
+  - `wantErr` field for returned error values. Use `wantErr bool` or `wantErr error` when exact error validate is desired.
+  - `setup` for dynamic case-specific preparation and dependency configuration.
+  - `assert` for complex validation where want fields aren't sufficient, e.g. checking slice length, validating non-deterministic values, etc...
+- Do not implement default zero/`nil` values just to satisfy the table structure, leave these fields unspecified, e.g. the following is an anti-pattern that reduces readability:
+  ```go
+  setup: func(t *testing.T) {}, // should be left undefined
+  assert: func(t *testing.T, got Result) {
+      assert.Equal(t, "foo", got.Value) // explicit behaviour, must be defined
+  },
+  wantErr: nil // should be left undefined
+  ```
+- An ideal table test should be explicit and lean.
+- When a table test becomes bloated, complex or has significant divergent behavior in setup and assertions, consider breaking down the test so we have a table test per behavior set.
+  - E.g. `TestX` could be broken down into `TestXSuccessCases`, `TestXValidationErrors`, `TestXExternalDependencyBehavior`, etc...
+- Keep the shared test runner small and predictable, defining only generic test case setup and teardown, test case specific behvaior must be defined in the test case definition.
+- Extract reusable fixture construction, dependency configuration, and assertions into tightly scoped helpers when this removes meaningful duplication. 
+- Keep every case readable: its configuration, invocation, and expected behaviour should be understandable from the row and the helpers it calls.
+- A dedicated, non-table test is only used when a table would make the scenario less readable or when the test is genuinely bespoke.
+- Table-driven structure are allowed but not required for non-functional tests, including benchmarks, concurrency, cancellation, resource-cleanup, or similar execution-flow verification.

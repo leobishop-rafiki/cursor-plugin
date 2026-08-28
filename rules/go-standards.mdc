@@ -4,25 +4,27 @@ globs: "**/*.go"
 alwaysApply: false
 ---
 
-# Go Standards
+# Terminology
 
-## Architecture
+In this rule, “signature” means a function or method’s parameters and result types, including interface method specifications.
+
+# Architecture
 
 - Shared/resuable packages, e.g. clients, libraries, etc..., must be agnostic of caller specific business configuration. That mapping belongs in the calling/integration layer, not the shared package.
 - Keep type-to-type mapping maps, functions & methods, e.g. result code mapping, enum conversions, etc..., in a dedicated `types.go`, keeping the mapping reusable.
 - Avoid panic in `init` for configuration issues, prefer explicit fail fast during package, class, object, etc... initialisation.
 
-## API Design
+# API Design
 
 - Avoid returning pointers unless `nil` is semantically required. Prefer `(value, error)` over `(*value, error)`.
 - Don't leak internal transport types (e.g. a raw HTTP client response) through a public API. Encapsulate the needed context in a dedicated error/result type instead.
 - Avoid a `(success, failure, error)` triple return when the failure value only exists to populate the error. Return `(success, error)` instead, even if older code in the same package uses the triple pattern.
-- Keep internal maps/lookup tables private; expose accessor methods rather than the raw map, unless there's a specific reason callers need direct access.
-- When a method updates a shared mutable field it doesn't fully own the lifecycle of (e.g. a metadata map, tags, headers), merge new values into the existing state rather than overwriting it wholesale.
+- Keep internal maps/lookup tables private; expose accessor signatures rather than the raw map, unless there's a specific reason callers need direct access.
+- When a signature updates a shared mutable field it doesn't fully own the lifecycle of (e.g. a metadata map, tags, headers), merge new values into the existing state rather than overwriting it wholesale.
 - HTTP clients model the provider API and return domain-specific responses/errors. Keep application status mapping, capability policy, integration decisions, etc... in the service adapter.
   - Do not expose internal HTTP response types to callers.
 
-## Naming & Types
+# Naming & Types
 
 - Use CamelCase for Go constants, not `SCREAMING_SNAKE_CASE`.
   - Exception for genuine initialisms (e.g. `MCCMNC`), which stay fully capitalized.
@@ -31,11 +33,11 @@ alwaysApply: false
   - Reserve an explicit unknown or undefined zero value for wire enums. Handle null, empty, etc... deliberately. 
   - Never allow absent input to default to success or a real provider capability.
 
-## JSON
+# JSON
 
 - Match third-party JSON field casing exactly as documented/observed on the wire. Don't "normalize" it to look consistent with Go conventions.
 
-## Erorr Handling
+# Erorr Handling
 
 - Error message strings must start lowercase.
 - Wrap errors with `%w` rather than joining them with `errors.Join` when there's a single underlying cause.
@@ -43,12 +45,38 @@ alwaysApply: false
   - The underlying cause must stay visible to the caller.
 - Use package-level sentinel errors for expected outcomes that callers may inspect
 
-## Documentation
+# Documentation
 
 - When annotationing code with external documentation, e.g. support conversations or doc clarification. Add this documentation to a durable document store, e.g. Notion.
   - Chat link is not sufficient, chat history isn't accessible or searchable for everyone.
 
-## Domain Objects
+# Domain Objects
 
 - Encapsulate validation and state transitions in domain types to prevent transition rules being duplicated across APIs and handlers.
   - Put validity checks and state-transition rules on domain types, exposing methods such as IsValid or UpdateState.
+
+# Pointer Parameters
+
+A pointer parameter signals that the signature may mutate the referenced object.
+
+When a signature's input and output represent the same logical entity, to ensure explicit behavioral expectations, use exactly one pattern:
+```go
+func F(value T) (T, error) // value transformation
+func F(value T) (*T, error) // when pointer return is required as defined in ## Pointer Return
+func F(value *T) error // in-place mutation
+```
+
+# Pointer Returns
+
+- Prefer returning `T`.
+- Return `*T` only when nilability, identity, or shared mutable state is required; document ownership and aliasing when it is not a fresh value.
+  - Examples where a pointer return is appropriate:
+    - nil must represent an absent or optional result distinctly from the type’s zero value.
+    - Callers must share object identity or observe/make mutations to the same object.
+    - An existing interface, external API, or framework requires a pointer return.
+
+Do not return `T` or `*T` matching a `*T` parameter:
+```go
+func F(value *T) (T, error)  // prohibited
+func F(value *T) (*T, error) // prohibited
+```
